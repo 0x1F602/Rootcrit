@@ -1,6 +1,10 @@
 #!/usr/bin/env perl
 use Mojolicious::Lite;
 
+my $verbose_debug = 2;
+my $no_debug = 0;
+my $debug_level = $no_debug;
+
 plugin 'Authentication' => {
   'autoload_user' => 1,
   'session_key' => 'rootcritbro', # CHANGE ME
@@ -151,50 +155,113 @@ app->start;
 __DATA__
 
 @@ index.html.ep
+    % content_for css => begin
+        div.rootcrit-top pre {
+            height: 400px;
+            overflow: auto;
+        }
+        .top-level-spacing {
+            margin-bottom: 50px;
+        }
+    % end
+    % content_for javascript => begin 
+        $(document).ready(function () {
+            var debug = 0;
+            var host_system_information = ['uptime', 'who', 'top', 'motion'];
+            var update_function = function () {
+                if (debug) {
+                  console.log(host_system_information.length);
+                }
+                for (var i = 0; i < host_system_information.length; i++) {
+                  var host_command = host_system_information[i];
+                  var host_update_container = 'div.rootcrit-' + host_command + ' .update-container';
+                  if (debug) {
+                    console.log('host system information ' + i);
+                    console.log(host_update_container);
+                    console.log('Starting ajax');
+                  }
+                  var update_ajax = function (host_command, host_update_container) {
+                    $.ajax({
+                      url: '/info/' + host_command,
+                      success: function (return_data) {
+                          if (debug) {
+                            console.log('host_command ' + host_command);
+                            console.log('host_update_container ' + host_update_container);
+                          }
+                          $(host_update_container).text(return_data);
+                      },
+                      error: function (jqXHR, textStatus, errorThrown) {
+                          $(host_update_container).text(textStatus + ' ' + errorThrown);
+                      }
+                    });
+                  };
+                  update_ajax(host_command, host_update_container);
+                }
+            };
+            update_function();
+            var update_timer = setInterval(update_function, 2000);
+            $('div#shutdown-button > form').click(function (e) {
+                if (confirm('Are you sure?')) {
+                    return;
+                }
+                e.preventDefault();
+            });
+        });
+    % end
 % layout 'default';
 % title 'Rootcrit';
 <div class='panel'>
-  <div class='col-xs-12 col-sm-6 col-sm-offset-3'>
+  <div class='col-xs-12 col-sm-6 col-sm-offset-3 top-level-spacing'>
     <h1>Welcome to Rootcrit</h1>
   </div>
-  <div id='shutdown-button' class='col-xs-12 col-sm-6 col-sm-offset-3'>
+  <div id='shutdown-button' class='col-xs-12 col-sm-6 col-sm-offset-3 top-level-spacing'>
     <form action="/shutdown">
-      <button class='btn btn-default col-xs-12'>Shutdown the system</button>
+      <button class='btn btn-primary col-xs-12'>Shutdown the system</button>
     </form>
   </div>
-  <div class='rootcrit-uptime col-xs-12 col-sm-6 col-sm-offset-3'>
-    <h2>uptime</h2>
-    <pre class="update-container">
-<%= $uptime %>
-    </pre>
+  <div class="col-xs-12 col-sm-6 col-sm-offset-3 top-level-spacing">
+    <button class="btn btn-primary col-xs-12" type="button" data-toggle="collapse" data-target="#rootcrit-system-info" aria-expanded="false" aria-controls="rootcrit-system-info">
+        Show/hide system info 
+    </button>
+    <div id="rootcrit-system-info" class="collapse">
+        <div class='rootcrit-uptime col-xs-12'>
+          <h2>uptime</h2>
+          <pre class="update-container">
+    <  %= $uptime %>
+          </pre>
+        </div>
+        <div class='rootcrit-who col-xs-12'>
+          <h2>who</h2>
+          <pre class="update-container">
+    <  %= $who %>
+          </pre>
+        </div>
+        <div class='rootcrit-top col-xs-12'>
+          <h2>top</h2>
+          <pre class="update-container">
+    <  %= $top %>
+          </pre>
+        </div>
+        <button class="btn btn-primary col-xs-12" type="button" data-toggle="collapse" data-target="#rootcrit-system-info" aria-expanded="false" aria-controls="rootcrit-system-info">
+            Show/hide system info
+        </button>
+    </div>
   </div>
-  <div class='rootcrit-who col-xs-12 col-sm-6 col-sm-offset-3'>
-    <h2>who</h2>
-    <pre class="update-container">
-<%= $who %>
-    </pre>
-  </div>
-  <div class='rootcrit-top col-xs-12 col-sm-6 col-sm-offset-3'>
-    <h2>top</h2>
-    <pre class="update-container">
-<%= $top %>
-    </pre>
-  </div>
-  <div class='rootcrit-motion col-xs-12 col-sm-6 col-sm-offset-3'>
+  <div class='rootcrit-motion col-xs-12 col-sm-6 col-sm-offset-3 top-level-spacing'>
     <h2>motion</h2>
     <a href="/motion/start" style="padding-bottom: 20px">
-        <button class='btn btn-default col-xs-12'>Start motion</button>
+        <button class='btn btn-primary col-xs-12 top-level-spacing'>Start motion</button>
     </a>
     <a href="/motion/stop">
-        <button class='btn btn-default col-xs-12'>Stop motion</button>
+        <button class='btn btn-primary col-xs-12 top-level-spacing'>Stop motion</button>
     </a>
     <pre class="update-container">
 <%= $motion %>
     </pre>
   </div>
-  <div class='col-xs-12 col-sm-6 col-sm-offset-3'>
+  <div class='col-xs-12 col-sm-6 col-sm-offset-3 top-level-spacing'>
     <a href="/logout">
-      <button class='btn btn-default col-xs-12'>Logout</button>
+      <button class='btn btn-primary col-xs-12'>Logout</button>
     </a>
   </div>
 </div>
@@ -246,52 +313,16 @@ __DATA__
 
     <!-- Optional theme -->
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap-theme.min.css" integrity="sha384-aUGj/X2zp5rLCbBxumKTCw2Z50WgIr1vs/PFN4praOTvYXWlVyh2UtNUU0KAUhAX" crossorigin="anonymous">
+    <!-- Custom CSS -->
+    <style>
+        <%== content 'css' %>
+    </style>
 
     <!-- Latest compiled and minified JavaScript -->
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js" integrity="sha512-K1qjQ+NcF2TYO/eI3M6v8EiNYZfA95pQumfvcVrTHtwQVDG+aHRqLi/ETn2uB+1JqwYqVG3LIvdm9lj6imS/pQ==" crossorigin="anonymous"></script>
+    <!-- Custom Javascript -->
     <script>
-$(document).ready(function () {
-    var debug = 0;
-    var host_system_information = ['uptime', 'who', 'top', 'motion'];
-    var update_function = function () {
-        if (debug) {
-          console.log(host_system_information.length);
-        }
-        for (var i = 0; i < host_system_information.length; i++) {
-          var host_command = host_system_information[i];
-          var host_update_container = 'div.rootcrit-' + host_command + ' .update-container';
-          if (debug) {
-            console.log('host system information ' + i);
-            console.log(host_update_container);
-            console.log('Starting ajax');
-          }
-          var update_ajax = function (host_command, host_update_container) {
-            $.ajax({
-              url: '/info/' + host_command,
-              success: function (return_data) {
-                  if (debug) {
-                    console.log('host_command ' + host_command);
-                    console.log('host_update_container ' + host_update_container);
-                  }
-                  $(host_update_container).text(return_data);
-              },
-              error: function (jqXHR, textStatus, errorThrown) {
-                  $(host_update_container).text(textStatus + ' ' + errorThrown);
-              }
-            });
-          };
-          update_ajax(host_command, host_update_container);
-        }
-    };
-    update_function();
-    var update_timer = setInterval(update_function, 2000);
-    $('div#shutdown-button > form').click(function (e) {
-        if (confirm('Are you sure?')) {
-            return;
-        }
-        e.preventDefault();
-    });
-});
+        <%== content 'javascript' %>
     </script>
   </head>
   <body><%= content %></body>
