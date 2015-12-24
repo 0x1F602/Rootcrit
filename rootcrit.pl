@@ -200,6 +200,31 @@ __DATA__
             };
             update_function();
             var update_timer = setInterval(update_function, 2000);
+
+            var motion_status_function  = function () {
+                if (debug) {
+                    console.log('Inside motion function');
+                }
+                // basically we are going to check '/info/motion/status' and
+                // we will get a json response  telling us if it's up or down
+                // we take that status and toggle the button on/off based on
+                // that result
+            };
+            // and put a timer here for the motion status function
+
+            // we can embed the mjpeg stream from motion here if we have it
+            // chrome and safari should refresh automatically...allegedly
+
+            // we want a gallery of the backlogged motion events
+            // but I am not sure what the interface should look like right now.
+            // obviously we prioritize new events over old events. but if you are
+            // looking at a single event, we don't want to change focus or make it harder
+            // to look back in time.
+
+            // I should look into some real time events. It might behoove me to a reddit front-page like
+            // setup where it's a list on its own page that needs to be refreshed manually
+            // individual events should have their own page and should be linkable based on UUID
+
             $('div#shutdown-button > form').click(function (e) {
                 if (confirm('Are you sure?')) {
                     return;
