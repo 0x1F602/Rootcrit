@@ -108,6 +108,87 @@ get '/info/motion' => (authenticated => 1) => sub {
     );
 };
 
+sub start_motion {
+    my ($config_path) = @_;
+    # Add it to the payload string
+    my $motion_command = 'motion';
+    if ($config_path) {
+        $motion_command .= " -c $config_path";
+    }
+    # Open motion via IPC::Open3
+    # Get the pid and return it
+    use IPC::Open3;
+    my $pid = open3(my $writer, my $reader, my $errors, $motion_command);
+    return $pid;
+}
+
+sub create_motion_lock {
+# Actually, what the heck are we getting here?
+# Can I refer to this via $c?
+    my ($pid) = @_;
+    my $lockfile_created = 0;
+    my $lockdir = '/tmp/rootcrit';
+    my $filename = "motion.$pid.lock";
+    use Try::Tiny;
+    $lockfile_created = try {
+        my $is_success = 0;
+        # Alright, get the pattern for the lockfile
+        # Get the lockfile directory
+        opendir(my $handle, $lockdir) or die 'can not open dir';
+        # Insert the pid into the lockfile as well
+        open(my $fh, '>', $lockdir . '/' . $filename) or die "can not open '$filename'";
+        print $fh "$pid";
+        return $is_success;
+    }
+    catch {
+        warn "ERROR";
+        # Tell me about it
+        my $err = $_;
+        warn "$err";
+    };
+    return $lockfile_created;
+}
+
+sub remove_motion_lock {
+    my $lockdir = '/tmp/rootcrit';
+    unlink glob "'$lockdir/motion.*.lock'";
+}
+
+sub is_motion_running {
+    my $lock_found = 0;
+    my $lockdir = '/tmp/rootcrit';
+    use Try::Tiny;
+    $lock_found = try {
+        if (!-d $lockdir) {
+            mkdir $lockdir;
+            $lock_found = 0;
+        }
+        else {
+            opendir(my $handle, $lockdir) or die 'can not open dir';
+            for my $entry (readdir $handle) {
+                if ($entry =~ m/motion\.\d+\.lock/) {
+                    $lock_found = 1;
+                    last;
+                }
+            }
+        }
+        return $lock_found;
+    } catch {
+        my $err = $_;
+        warn "$err";
+    };
+    return $lock_found;
+}
+
+get '/info/motion/status' => (authenticated => 1) => sub {
+    my $c = shift;
+warn "Inside info motion status";
+    my $status = is_motion_running();
+    $c->render(
+        json => $status,
+    );
+};
+
 get '/shutdown' => (authenticated => 1) => sub {
   my $c = shift;
   qx(shutdown -h now);
@@ -116,13 +197,23 @@ get '/shutdown' => (authenticated => 1) => sub {
 
 get '/motion/start' => (authenticated => 1) => sub {
     my $c = shift;
-    my $config = $c->app->plugin('Config');
-    my $config_path = $config->{motion_config_path};
-    my $motion_command = 'motion';
-    if ($config_path) {
-        $motion_command .= " -c $config_path";
+# check for a pid lock file in /tmp
+# if no lock found...
+    my $running = 1;
+    my $motion_status = is_motion_running();
+    if ($motion_status == $running) {
+        # Do nothing I guess. 
+        # Space reserved for better ideas.
     }
-    system "$motion_command &";
+    else {
+        # create a pid lock file in /tmp
+        # should look like /tmp/rootcrit/motion.pid
+        # Get the config file path, if given
+        my $config = $c->app->plugin('Config');
+        my $config_path = $config->{motion_config_path};
+        my $motion_pid = start_motion($config_path);
+        create_motion_lock($motion_pid);
+    }
     $c->render(
         template => 'index',
         uptime    => 'Loading',
@@ -134,7 +225,13 @@ get '/motion/start' => (authenticated => 1) => sub {
 
 get '/motion/stop' => (authenticated => 1) => sub {
     my $c = shift;
+# check for a pid lock file in /tmp
+# if there's a pid lock file
+    # get the pid
+    # kill the pid
+    # delete the pid lock file
     system 'killall motion';
+    remove_motion_lock();
     $c->render(
         template => 'index',
         uptime    => 'Loading',
@@ -146,6 +243,8 @@ get '/motion/stop' => (authenticated => 1) => sub {
 
 # Index page
     # Collect some system information for the user
+    # Show the motion status
+    # Offer to switch it on and off
     # Show the shutdown switch
 # Accept a shutdown command
     # Create a calendar event for remote shutdown event
@@ -163,11 +262,18 @@ __DATA__
         .top-level-spacing {
             margin-bottom: 50px;
         }
+        div.rootcrit-motion span.rootcrit-motion-enable {
+            display: hidden;
+        }
+        div.rootcrit-motion span.rootcrit-motion-disable {
+            display: hidden;
+        }
     % end
     % content_for javascript => begin 
         $(document).ready(function () {
+            window.motion = {};
             var debug = 0;
-            var host_system_information = ['uptime', 'who', 'top', 'motion'];
+            var host_system_information = ['uptime', 'who', 'top'];
             var update_function = function () {
                 if (debug) {
                   console.log(host_system_information.length);
@@ -201,16 +307,50 @@ __DATA__
             update_function();
             var update_timer = setInterval(update_function, 2000);
 
+            $('div.rootcrit-motion button.rootcrit-motion-button').prop('disabled', true);
             var motion_status_function  = function () {
                 if (debug) {
                     console.log('Inside motion function');
                 }
+                var xhr = $.ajax({
+                    url: '/info/motion/status',
+                }).then(
+                    function (motionStatus) {
+                        $('div.rootcrit-motion button.rootcrit-motion-button').prop('disabled', false);
+                        console.log(motionStatus);
+                        var enabled = 1;
+                        if (motionStatus == enabled) {
+                            $('div.rootcrit-motion span.rootcrit-motion-enable').hide();
+                            $('div.rootcrit-motion span.rootcrit-motion-disable').show();
+                            $('div.rootcrit-motion span.rootcrit-motion-status').text('ON');
+                            window.motion.action = '/motion/stop';
+                        }
+                        else {
+                            $('div.rootcrit-motion span.rootcrit-motion-disable').hide();
+                            $('div.rootcrit-motion span.rootcrit-motion-enable').show();
+                            $('div.rootcrit-motion span.rootcrit-motion-status').text('OFF');
+                            window.motion.action = '/motion/start';
+                        }
+                    }, function (xhr, httpStatus, error) {
+                        $('div.rootcrit-motion button.rootcrit-motion-button').disable();
+                        console.log(httpStatus);
+                        console.log(error);
+                    }
+                );
                 // basically we are going to check '/info/motion/status' and
                 // we will get a json response  telling us if it's up or down
                 // we take that status and toggle the button on/off based on
                 // that result
             };
+            motion_status_function();
+            var motion_status_timer = setInterval(motion_status_function, 5000); // 2 seconds in ms
             // and put a timer here for the motion status function
+            $('div.rootcrit-motion button.rootcrit-motion-button').click(function () {
+                $.ajax({
+                    url: window.motion.action
+                });
+                motion_status_function();
+            });
 
             // we can embed the mjpeg stream from motion here if we have it
             // chrome and safari should refresh automatically...allegedly
@@ -274,15 +414,23 @@ __DATA__
   </div>
   <div class='rootcrit-motion col-xs-12 col-sm-6 col-sm-offset-3 top-level-spacing'>
     <h2>motion</h2>
-    <a href="/motion/start" style="padding-bottom: 20px">
+    <h3>Status: <span class='rootcrit-motion-status'>Unknown</span></h3>
+    <button class='rootcrit-motion-button btn btn-primary col-xs-12 top-level-spacing'>
+        <span class='rootcrit-motion-disable' style='display: hidden'>Disable</span>
+        <span class='rootcrit-motion-enable' style='display: hidden'>Enable</span>
+        <span class='rootcrit-motion-label'>Motion</span>
+    </button>
+    <!-- Replace this with AJAX
+    <a class="rootcrit-motion-start" href="/motion/start" style="padding-bottom: 20px">
         <button class='btn btn-primary col-xs-12 top-level-spacing'>Start motion</button>
     </a>
-    <a href="/motion/stop">
+    <a class="rootcrit-motion-stop" href="/motion/stop">
         <button class='btn btn-primary col-xs-12 top-level-spacing'>Stop motion</button>
     </a>
-    <pre class="update-container">
-<%= $motion %>
-    </pre>
+    -->
+    <div class="rootcrit-motion-stream-container">
+        <!-- <img> would go here, need to look up a src tho -->
+    </div>
   </div>
   <div class='col-xs-12 col-sm-6 col-sm-offset-3 top-level-spacing'>
     <a href="/logout">
