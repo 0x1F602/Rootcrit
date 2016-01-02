@@ -182,7 +182,6 @@ sub is_motion_running {
 
 get '/info/motion/status' => (authenticated => 1) => sub {
     my $c = shift;
-warn "Inside info motion status";
     my $status = is_motion_running();
     $c->render(
         json => $status,
@@ -317,7 +316,7 @@ __DATA__
                 }).then(
                     function (motionStatus) {
                         $('div.rootcrit-motion button.rootcrit-motion-button').prop('disabled', false);
-                        console.log(motionStatus);
+                        if (debug) { console.log(motionStatus); }
                         var enabled = 1;
                         if (motionStatus == enabled) {
                             $('div.rootcrit-motion span.rootcrit-motion-enable').hide();
@@ -333,8 +332,10 @@ __DATA__
                         }
                     }, function (xhr, httpStatus, error) {
                         $('div.rootcrit-motion button.rootcrit-motion-button').disable();
-                        console.log(httpStatus);
-                        console.log(error);
+                        if (debug) {
+                            console.log(httpStatus);
+                            console.log(error);
+                        }
                     }
                 );
                 // basically we are going to check '/info/motion/status' and
