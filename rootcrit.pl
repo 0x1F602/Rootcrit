@@ -245,6 +245,7 @@ get '/motion/stop' => (authenticated => 1) => sub {
     # Show the motion status
     # Offer to switch it on and off
     # Show the shutdown switch
+    # Offer a gallery of the currently recorded pictures
 # Accept a shutdown command
     # Create a calendar event for remote shutdown event
     # Shut down the system properly
