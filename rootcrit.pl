@@ -324,11 +324,19 @@ __DATA__
                             $('div.rootcrit-motion span.rootcrit-motion-disable').show();
                             $('div.rootcrit-motion span.rootcrit-motion-status').text('ON');
                             window.motion.action = '/motion/stop';
+			    
+			    $('div.rootcrit-motion div.rootcrit-motion-stream-container')
+			        .html('<img src="http://192.168.1.103:8081" onerror="this.style.display=\'none\';this.style.height=0">')
+				.css('height', 300); // 300 px, height of the mjpg roughly
+			    $('div.rootcrit-motion div.rootcrit-motion-stream-container img').error(function (e) {
+				$(this).hide();
+			    });
                         }
                         else {
                             $('div.rootcrit-motion span.rootcrit-motion-disable').hide();
                             $('div.rootcrit-motion span.rootcrit-motion-enable').show();
                             $('div.rootcrit-motion span.rootcrit-motion-status').text('OFF');
+			    $('div.rootcrit-motion div.rootcrit-motion-stream-container img').remove();
                             window.motion.action = '/motion/start';
                         }
                     }, function (xhr, httpStatus, error) {
@@ -422,16 +430,8 @@ __DATA__
         <span class='rootcrit-motion-enable' style='display: hidden'>Enable</span>
         <span class='rootcrit-motion-label'>Motion</span>
     </button>
-    <!-- Replace this with AJAX
-    <a class="rootcrit-motion-start" href="/motion/start" style="padding-bottom: 20px">
-        <button class='btn btn-primary col-xs-12 top-level-spacing'>Start motion</button>
-    </a>
-    <a class="rootcrit-motion-stop" href="/motion/stop">
-        <button class='btn btn-primary col-xs-12 top-level-spacing'>Stop motion</button>
-    </a>
-    -->
     <div class="rootcrit-motion-stream-container">
-        <!-- <img> would go here, need to look up a src tho -->
+	<img src="http://192.168.1.103:8081">
     </div>
   </div>
   <div class='col-xs-12 col-sm-6 col-sm-offset-3 top-level-spacing'>
