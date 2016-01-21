@@ -100,14 +100,6 @@ get '/info/top' => (authenticated => 1) => sub {
     );
 };
 
-get '/info/motion' => (authenticated => 1) => sub {
-    my $c = shift;
-    my $motion_status = qx(ps aux | grep motion);
-    $c->render(
-        json => $motion_status, 
-    );
-};
-
 sub start_motion {
     my ($config_path) = @_;
     # Add it to the payload string
@@ -184,7 +176,10 @@ get '/info/motion/status' => (authenticated => 1) => sub {
     my $c = shift;
     my $status = is_motion_running();
     $c->render(
-        json => $status,
+        json => {
+        status => $status,
+        external_host => $c->app->plugin('Config')->{motion_external_host},
+    }
     );
 };
 
@@ -214,11 +209,11 @@ get '/motion/start' => (authenticated => 1) => sub {
         create_motion_lock($motion_pid);
     }
     $c->render(
-        template => 'index',
-        uptime    => 'Loading',
-        who       => 'Loading',
-        top       => 'Loading',
-        motion    => 'Loading',
+        template    => 'index',
+        uptime      => 'Loading',
+        who         => 'Loading',
+        top         => 'Loading',
+        motion      => 'Loading',
     );
 };
 
@@ -315,7 +310,8 @@ __DATA__
                 var xhr = $.ajax({
                     url: '/info/motion/status',
                 }).then(
-                    function (motionStatus) {
+                    function (motionInfoJSON) {
+                        var motionStatus = motionInfoJSON['status'];
                         $('div.rootcrit-motion button.rootcrit-motion-button').prop('disabled', false);
                         if (debug) { console.log(motionStatus); }
                         var enabled = 1;
@@ -324,19 +320,23 @@ __DATA__
                             $('div.rootcrit-motion span.rootcrit-motion-disable').show();
                             $('div.rootcrit-motion span.rootcrit-motion-status').text('ON');
                             window.motion.action = '/motion/stop';
-			    
-			    $('div.rootcrit-motion div.rootcrit-motion-stream-container')
-			        .html('<img src="http://192.168.1.103:8081" onerror="this.style.display=\'none\';this.style.height=0">')
-				.css('height', 300); // 300 px, height of the mjpg roughly
-			    $('div.rootcrit-motion div.rootcrit-motion-stream-container img').error(function (e) {
-				$(this).hide();
-			    });
+                
+                            $('div.rootcrit-motion div.rootcrit-motion-stream-container')
+                                .html('<img src="' + motionInfoJSON['external_host'] + '" onerror="this.style.display=\'none\';this.style.height=0">')
+                                .css('height', 300) // 300 px, height of the mjpg roughly
+                                .css('margin-top', 25);
+                            $('div.rootcrit-motion div.rootcrit-motion-stream-container img').error(function (e) {
+                                $(this).hide();
+                            });
                         }
                         else {
                             $('div.rootcrit-motion span.rootcrit-motion-disable').hide();
                             $('div.rootcrit-motion span.rootcrit-motion-enable').show();
                             $('div.rootcrit-motion span.rootcrit-motion-status').text('OFF');
-			    $('div.rootcrit-motion div.rootcrit-motion-stream-container img').remove();
+                $('div.rootcrit-motion div.rootcrit-motion-stream-container img').remove();
+                $('div.rootcrit-motion div.rootcrit-motion-stream-container')
+                .css('height', 0)
+                .css('margin-top', 25);
                             window.motion.action = '/motion/start';
                         }
                     }, function (xhr, httpStatus, error) {
@@ -426,13 +426,12 @@ __DATA__
   <div class='rootcrit-motion col-xs-12 col-sm-6 col-sm-offset-3 top-level-spacing'>
     <h2>motion</h2>
     <h3>Status: <span class='rootcrit-motion-status'>Unknown</span></h3>
-    <button class='rootcrit-motion-button btn btn-primary col-xs-12 top-level-spacing'>
+    <button class='rootcrit-motion-button btn btn-primary col-xs-12'>
         <span class='rootcrit-motion-disable' style='display: hidden'>Disable</span>
         <span class='rootcrit-motion-enable' style='display: hidden'>Enable</span>
         <span class='rootcrit-motion-label'>Motion</span>
     </button>
     <div class="rootcrit-motion-stream-container">
-	<img src="http://192.168.1.103:8081">
     </div>
   </div>
   <div class='col-xs-12 col-sm-6 col-sm-offset-3 top-level-spacing'>
