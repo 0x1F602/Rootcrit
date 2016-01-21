@@ -345,6 +345,7 @@ __DATA__
                             console.log(httpStatus);
                             console.log(error);
                         }
+                        $('div.rootcrit-motion span.rootcrit-motion-status').text('ERROR!');
                     }
                 );
                 // basically we are going to check '/info/motion/status' and
