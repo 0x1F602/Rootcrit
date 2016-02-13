@@ -7,6 +7,8 @@ use Try::Tiny;
 
 use 5.18.2;
 
+$Tenjin::USE_STRICT = 1; $Tenjin::ENCODING = 'UTF-8';
+
 # Get the current working directory
 my $current_directory = File::Spec->curdir;
 
@@ -35,13 +37,26 @@ use Data::Dumper; local $Data::Dumper::Maxdepth = 2;
     say "$result->{config}->{username} - we found the rootcrit config file";
     say "Now attempting to find the rootcrit transmit perl script";
 
+    # Look up the gpg file path
+    my $gpg_file_path = $result->{config}->{motion_gpg_public};
     # Find the transmit.pl file
     my $transmit_file = "transmit.pl";
-    # Use curdir to get the absolute path for our template
-    # Look up the gpg file path
     # Look up the motion default template file
+    # Join current directory with $default_template
+    my $default_template = 'motion.default.conf';
+    my $transmit_file_path = File::Spec->rel2abs($transmit_file);
+    my $default_template_path = File::Spec->rel2abs($default_template);
+    warn "Transmit file path: $transmit_file_path";
+    warn "Default template path: $default_template_path";
     # Compute it using Tenjin
-        # provide parameters that we've gathered here to Tenjin here
+    my $t = Tenjin->new();
+    # provide parameters that we've gathered here to Tenjin here
+    my $template_variables = {
+        on_picture_save     => "$transmit_file_path %f",
+        webcam_motion       => 'on',
+        webcam_localhost    => 'off',
+        webcam_limit        => 0,
+    };
     # Take the output and write it to a config file
 }
 # Otherwise we need to stop here and ask the user to re-orient us
