@@ -54,6 +54,11 @@ if ($result->{status} eq 'succeeded') {
         webcam_limit        => 0,
     };
     # Take the output and write it to a config file
+    my $output = $t->render($default_template_path, $template_variables);
+    my $output_filename = 'motion.conf'; 
+    open(my $output_fh, '>', $output_filename);
+    say "Writing output to $output_filename";
+    print $output_fh $output;
 }
 # Otherwise we need to stop here and ask the user to re-orient us
     # print the usage here
