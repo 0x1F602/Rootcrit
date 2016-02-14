@@ -31,8 +31,6 @@ catch {
 };
 if ($result->{status} eq 'succeeded') {
     my $fh = $result->{filehandle};
-use Data::Dumper; local $Data::Dumper::Maxdepth = 2;
-    warn Dumper $result->{config};
     
     say "$result->{config}->{username} - we found the rootcrit config file";
     say "Now attempting to find the rootcrit transmit perl script";
@@ -46,8 +44,6 @@ use Data::Dumper; local $Data::Dumper::Maxdepth = 2;
     my $default_template = 'motion.default.conf';
     my $transmit_file_path = File::Spec->rel2abs($transmit_file);
     my $default_template_path = File::Spec->rel2abs($default_template);
-    warn "Transmit file path: $transmit_file_path";
-    warn "Default template path: $default_template_path";
     # Compute it using Tenjin
     my $t = Tenjin->new();
     # provide parameters that we've gathered here to Tenjin here
