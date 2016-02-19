@@ -49,6 +49,7 @@ if ($result->{status} eq 'succeeded') {
     # provide parameters that we've gathered here to Tenjin here
     my $template_variables = {
         on_picture_save     => "$transmit_file_path %f",
+        target_dir          => '/var/www/standard/motion',
         webcam_motion       => 'on',
         webcam_localhost    => 'off',
         webcam_limit        => 0,
