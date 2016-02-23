@@ -1,0 +1,10 @@
+CREATE KEYSPACE rootcrit;
+USE rootcrit;
+
+CREATE TABLE incidents (
+    incident_id     uuid    PRIMARY KEY,
+    location        ascii, 
+    image           blob,
+    filename        ascii
+);
+    
