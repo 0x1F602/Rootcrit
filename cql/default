@@ -1,4 +1,6 @@
-CREATE KEYSPACE rootcrit;
+CREATE KEYSPACE rootcrit
+    WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replication_factor' : 1 };
+
 USE rootcrit;
 
 CREATE TABLE incidents (

@@ -9,3 +9,5 @@ requires 'File::Slurp';
 requires 'IO::Async::Loop';
 requires 'Net::Async::CassandraCQL';
 requires 'Protocol::CassandraCQL';
+requires 'GnuPG';
+requires 'Devel::Refcount';
