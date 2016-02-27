@@ -39,7 +39,7 @@ else {
         output    => $output_whole_path,
         recipient => 'Rootcrit',
     );
-    #unlink($whole_path);
+    unlink($whole_path);
     my $upload_encrypted_file_statement = $cass->prepare(
     "INSERT INTO incidents (
         incident_id,
@@ -56,7 +56,4 @@ else {
     open(my $encrypted_filehandle, $output_whole_path) or die $!;
     read($encrypted_filehandle, $encrypted_file_blob, -s $encrypted_filehandle);
     my $x = $cass->execute($upload_encrypted_file_statement, [$output_filename, $encrypted_file_blob, 'home'])->get;
-use Data::Dumper;
-warn Dumper $x;
-    warn "executed";
 }
