@@ -44,12 +44,14 @@ if ($result->{status} eq 'succeeded') {
     my $default_template = 'motion.default.conf';
     my $transmit_file_path = File::Spec->rel2abs($transmit_file);
     my $default_template_path = File::Spec->rel2abs($default_template);
+    my $target_dir = $result->{config}->{motion_target_dir};
+
     # Compute it using Tenjin
     my $t = Tenjin->new();
     # provide parameters that we've gathered here to Tenjin here
     my $template_variables = {
         on_picture_save     => "$transmit_file_path %f",
-        target_dir          => '/var/www/standard/motion',
+        target_dir          => $target_dir,
         webcam_motion       => 'on',
         webcam_localhost    => 'off',
         webcam_limit        => 0,
