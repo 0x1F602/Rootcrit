@@ -4,9 +4,10 @@ CREATE KEYSPACE rootcrit
 USE rootcrit;
 
 CREATE TABLE incidents (
-    incident_id     uuid    PRIMARY KEY,
-    location        ascii, 
-    image           blob,
-    filename        ascii
-);
-    
+  incident_id timeuuid,
+  facility ascii,
+  sensor ascii,
+  image blob,
+  sensor_filename ascii,
+  PRIMARY KEY ((incident_id), facility, sensor)
+)

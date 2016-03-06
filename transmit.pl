@@ -7,9 +7,22 @@ use IO::Async::Loop;
 use Net::Async::CassandraCQL;
 use Protocol::CassandraCQL qw/CONSISTENCY_QUORUM/;
 
+use Cwd;
+use File::Slurp;
+my $cwd = getcwd;
+my $config_filename = 'rootcrit.conf';
+my $config_filepath = File::Spec->catfile($cwd, $config_filename);
+my $config_text = read_file($config_filepath);
+my $config = eval $config_text;
+
+my $cassandra_host = $config->{cassandra_host};
+my $facility = $config->{facility};
+my $sensor = $config->{sensor};
+my $recipient = $config->{motion_gpg_public};
+
 my $loop = IO::Async::Loop->new;
 my $cass = Net::Async::CassandraCQL->new(
-    host                => 'localhost',
+    host                => $cassandra_host,
     keyspace            => 'rootcrit',
     default_consistency => CONSISTENCY_QUORUM,
 );
@@ -30,24 +43,22 @@ else {
     my $extension = '.gpg';
     my $output_filename = $input_filename . $extension;
     my $output_whole_path = File::Spec->catfile($encrypted_path,$output_filename);
-    warn "output file name $output_filename";
-    warn "encrypted path $encrypted_path";
-    warn "Encrypting $whole_path";
-    warn "Output $output_whole_path";
     $gpg->encrypt(
         plaintext => $whole_path,
         output    => $output_whole_path,
-        recipient => 'Rootcrit',
+        recipient => $recipient,
     );
     unlink($whole_path);
     my $upload_encrypted_file_statement = $cass->prepare(
     "INSERT INTO incidents (
         incident_id,
-        filename,
+        facility,
+        sensor,
         image,
-        location
+        sensor_filename
     ) VALUES (
-        uuid(),
+        now(),
+        ?,
         ?,
         ?,
         ?
@@ -55,5 +66,5 @@ else {
     my $encrypted_file_blob = undef;
     open(my $encrypted_filehandle, $output_whole_path) or die $!;
     read($encrypted_filehandle, $encrypted_file_blob, -s $encrypted_filehandle);
-    my $x = $cass->execute($upload_encrypted_file_statement, [$output_filename, $encrypted_file_blob, 'home'])->get;
+    my $x = $cass->execute($upload_encrypted_file_statement, [$facility, $sensor, $encrypted_file_blob, $output_filename])->get;
 }
