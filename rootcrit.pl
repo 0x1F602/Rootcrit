@@ -301,6 +301,19 @@ __DATA__
             };
             update_function();
             var update_timer = setInterval(update_function, 2000);
+            var info_updates_active = 1;
+            $('button#rootcrit-toggle-info-update').click(function () {
+                if (info_updates_active) {
+                    clearInterval(update_timer); 
+                    info_updates_active = 0;
+                    $('button#rootcrit-toggle-info-update').text('Enable updates');
+                }
+                else {
+                    update_timer = setInterval(update_function, 2000);
+                    info_updates_active = 1;
+                    $('button#rootcrit-toggle-info-update').text('Disable updates');
+                }
+            });
 
             $('div.rootcrit-motion button.rootcrit-motion-button').prop('disabled', true);
             var motion_status_function  = function () {
@@ -400,6 +413,9 @@ __DATA__
         Show/hide system info 
     </button>
     <div id="rootcrit-system-info" class="collapse">
+        <button id="rootcrit-toggle-info-update" class="btn btn-primary col-xs-12" type="button">
+           Disable updates
+        </button>
         <div class='rootcrit-uptime col-xs-12'>
           <h2>uptime</h2>
           <pre class="update-container">
