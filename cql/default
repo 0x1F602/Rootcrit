@@ -10,4 +10,13 @@ CREATE TABLE incidents (
   image blob,
   sensor_filename ascii,
   PRIMARY KEY ((incident_id), facility, sensor)
-)
+);
+
+CREATE TABLE incident_by_facility (
+    facility ascii,
+    sensor ascii,
+    incident_id timeuuid,
+    sensor_filename ascii,
+    image blob,
+    PRIMARY KEY ((facility), incident_id, sensor)
+);

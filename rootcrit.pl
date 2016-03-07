@@ -266,13 +266,27 @@ get '/motion/stop' => (authenticated => 1) => sub {
 get '/incidents' => (authenticated => 1) => sub {
     my $c = shift;
     my $last_48_hours = DateTime->now();
-    $last_48_hours->subtract({ hours => 24 });
+    $last_48_hours->subtract({ hours => 48 });
     my $recent_incidents = $last_48_hours->strftime('%Y-%m-%d %R');
-    my $select = $cass->prepare("SELECT * FROM incidents WHERE incident_id > minTimeuuid('$recent_incidents');");
-    my $x = $select->get;
-    use Data::Dumper;
-    warn Dumper $x;
-    return $x;
+    my $facility_name = $c->app->plugin('Config')->{facility};
+    my $select = $cass->prepare("SELECT dateof(incident_id) AS timestamp, facility, sensor, sensor_filename FROM incident_by_facility WHERE facility = '$facility_name' AND incident_id > minTimeuuid('$recent_incidents') ORDER BY incident_id DESC;");
+    my (undef, $x) = $select->get->execute([])->get;
+    $c->render(
+        json => {
+            result => [$x->rows_hash],
+        } 
+    );
+};
+
+get '/incident/:incident_id' => (authenticated => 1) => sub {
+    my ($c) = @_;
+    my $incident_id = $c->stash('incident_id');
+    warn "selected incident id $incident_id";
+    $c->render(
+        json => {
+            incident_id => $incident_id
+        }
+    );
 };
 
 # Index page

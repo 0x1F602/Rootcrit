@@ -63,8 +63,23 @@ else {
         ?,
         ?
     );")->get;
+    my $second_upload_encrypted_file_statement = $cass->prepare(
+    "INSERT INTO incident_by_facility (
+        incident_id,
+        facility,
+        sensor,
+        image,
+        sensor_filename
+    ) VALUES (
+        now(),
+        ?,
+        ?,
+        ?,
+        ?
+    );")->get;
     my $encrypted_file_blob = undef;
     open(my $encrypted_filehandle, $output_whole_path) or die $!;
     read($encrypted_filehandle, $encrypted_file_blob, -s $encrypted_filehandle);
     my $x = $cass->execute($upload_encrypted_file_statement, [$facility, $sensor, $encrypted_file_blob, $output_filename])->get;
+    $x = $cass->execute($second_upload_encrypted_file_statement, [$facility, $sensor, $encrypted_file_blob, $output_filename])->get;
 }
