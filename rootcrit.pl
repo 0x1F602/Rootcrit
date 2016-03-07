@@ -1,6 +1,34 @@
 #!/usr/bin/env perl
 use Mojolicious::Lite;
 
+use IO::Async::Loop;
+use Net::Async::CassandraCQL;
+use Protocol::CassandraCQL qw( CONSISTENCY_QUORUM );
+
+use DateTime;
+
+use Cwd;
+use File::Slurp;
+my $cwd = getcwd;
+my $config_filename = 'rootcrit.conf';
+my $config_filepath = File::Spec->catfile($cwd, $config_filename);
+my $config_text = read_file($config_filepath);
+my $config = eval $config_text;
+
+my $cassandra_host = $config->{cassandra_host};
+my $facility = $config->{facility};
+my $sensor = $config->{sensor};
+my $recipient = $config->{motion_gpg_public};
+
+my $cass_loop = IO::Async::Loop->new;
+my $cass = Net::Async::CassandraCQL->new(
+    host => "$cassandra_host",
+    keyspace => "rootcrit",
+    default_consistency => CONSISTENCY_QUORUM,
+);
+$cass_loop->add( $cass );
+$cass->connect->get;
+
 my $verbose_debug = 2;
 my $no_debug = 0;
 my $debug_level = $no_debug;
@@ -235,6 +263,18 @@ get '/motion/stop' => (authenticated => 1) => sub {
     );
 };
 
+get '/incidents' => (authenticated => 1) => sub {
+    my $c = shift;
+    my $last_48_hours = DateTime->now();
+    $last_48_hours->subtract({ hours => 24 });
+    my $recent_incidents = $last_48_hours->strftime('%Y-%m-%d %R');
+    my $select = $cass->prepare("SELECT * FROM incidents WHERE incident_id > minTimeuuid('$recent_incidents');");
+    my $x = $select->get;
+    use Data::Dumper;
+    warn Dumper $x;
+    return $x;
+};
+
 # Index page
     # Collect some system information for the user
     # Show the motion status
@@ -448,6 +488,11 @@ __DATA__
         <span class='rootcrit-motion-label'>Motion</span>
     </button>
     <div class="rootcrit-motion-stream-container">
+    </div>
+  </div>
+  <div class='rootcrit-motion-incidents col-xs-12 col-sm-6 col-sm-offset-3 top-level spacing'>
+    <h2>Recent incidents</h2>
+    <div class="rootcrit-motion-incident-list">
     </div>
   </div>
   <div class='col-xs-12 col-sm-6 col-sm-offset-3 top-level-spacing'>

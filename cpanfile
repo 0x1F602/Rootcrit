@@ -11,3 +11,4 @@ requires 'Net::Async::CassandraCQL';
 requires 'Protocol::CassandraCQL';
 requires 'GnuPG';
 requires 'Devel::Refcount';
+requires 'DateTime';
