@@ -266,10 +266,10 @@ get '/motion/stop' => (authenticated => 1) => sub {
 get '/incidents' => (authenticated => 1) => sub {
     my $c = shift;
     my $last_48_hours = DateTime->now();
-    $last_48_hours->subtract({ hours => 48 });
+    $last_48_hours->subtract(hours => 72);
     my $recent_incidents = $last_48_hours->strftime('%Y-%m-%d %R');
     my $facility_name = $c->app->plugin('Config')->{facility};
-    my $select = $cass->prepare("SELECT dateof(incident_id) AS timestamp, facility, sensor, sensor_filename FROM incident_by_facility WHERE facility = '$facility_name' AND incident_id > minTimeuuid('$recent_incidents') ORDER BY incident_id DESC;");
+    my $select = $cass->prepare("SELECT dateof(incident_id) AS timestamp, incident_id, facility, sensor, sensor_filename FROM incident_by_facility WHERE facility = '$facility_name' AND incident_id > minTimeuuid('$recent_incidents') ORDER BY incident_id DESC;");
     my (undef, $x) = $select->get->execute([])->get;
     $c->render(
         json => {
@@ -278,10 +278,11 @@ get '/incidents' => (authenticated => 1) => sub {
     );
 };
 
-get '/incident/:incident_id' => (authenticated => 1) => sub {
+get '/incident/image/:incident_id' => (authenticated => 1) => sub {
     my ($c) = @_;
     my $incident_id = $c->stash('incident_id');
     warn "selected incident id $incident_id";
+    # Get the incident's image data
     $c->render(
         json => {
             incident_id => $incident_id
@@ -442,6 +443,27 @@ __DATA__
             // I should look into some real time events. It might behoove me to a reddit front-page like
             // setup where it's a list on its own page that needs to be refreshed manually
             // individual events should have their own page and should be linkable based on UUID
+            var load_incidents_updater = function () {
+                console.log("Loading incidents!");
+                $.ajax({
+                    url: '/incidents'
+                }).then(function (incidents) {
+                    console.log("Here they are");
+                    console.log(incidents);
+                    var result = incidents.result;
+                    for (var ii = 0; ii < result.length; ii++) {
+                        // Cassandra TimeUUIDs are 'epoch' and not 'unixepoch'. Date() needs a multiplication.
+                        var dt = new Date(result[ii].timestamp * 1000);
+                        $('div.rootcrit-motion-incidents').append("<a class='col-xs-12' href='/incident/" + result[ii].incident_id + "'>" +
+                            "Incident at " + dt + " " +
+                            "</a>");
+                        $('div.rootcrit-motion-incidents').append("<a class='col-xs-12' href='/incident/image/" + result[ii].incident_id + "'>" +
+                            "Download incident data" +
+                            "</a>");
+                    }
+                });
+            };
+            load_incidents_updater();
 
             $('div#shutdown-button > form').click(function (e) {
                 if (confirm('Are you sure?')) {
