@@ -27,7 +27,7 @@ my $cass = Net::Async::CassandraCQL->new(
     default_consistency => CONSISTENCY_QUORUM,
 );
 $cass_loop->add( $cass );
-$cass->connect->get;
+my $result = $cass->connect->get;
 
 my $verbose_debug = 2;
 my $no_debug = 0;
@@ -269,7 +269,8 @@ get '/incidents' => (authenticated => 1) => sub {
     $last_48_hours->subtract(hours => 72);
     my $recent_incidents = $last_48_hours->strftime('%Y-%m-%d %R');
     my $facility_name = $c->app->plugin('Config')->{facility};
-    my $select = $cass->prepare("SELECT dateof(incident_id) AS timestamp, incident_id, facility, sensor, sensor_filename FROM incident_by_facility WHERE facility = '$facility_name' AND incident_id > minTimeuuid('$recent_incidents') ORDER BY incident_id DESC;");
+    #my $select = $cass->prepare("SELECT dateof(incident_id) AS timestamp, incident_id, facility, sensor, sensor_filename FROM incident_by_facility WHERE facility = '$facility_name' AND incident_id > minTimeuuid('$recent_incidents') ORDER BY incident_id DESC;");
+    my $select = $cass->prepare("SELECT dateof(incident_id) AS timestamp, incident_id, facility, sensor, sensor_filename FROM incident_by_facility WHERE facility = '$facility_name' ORDER BY incident_id DESC;");
     my (undef, $x) = $select->get->execute([])->get;
     $c->render(
         json => {
@@ -283,10 +284,13 @@ get '/incident/image/:incident_id' => (authenticated => 1) => sub {
     my $incident_id = $c->stash('incident_id');
     warn "selected incident id $incident_id";
     # Get the incident's image data
+    my $facility_name = $c->app->plugin('Config')->{facility};
+    my $select = $cass->prepare("SELECT sensor_filename, image FROM incident_by_facility WHERE facility = '$facility_name' AND incident_id = $incident_id;");
+    my (undef, $x) = $select->get->execute([])->get;
+    my @rows = $x->rows_hash;
+    my $image_blob = $rows[0]->{image};
     $c->render(
-        json => {
-            incident_id => $incident_id
-        }
+        data => $image_blob,
     );
 };
 
@@ -318,9 +322,46 @@ __DATA__
         div.rootcrit-motion span.rootcrit-motion-disable {
             display: hidden;
         }
+
+        textarea.rootcrit-motion-encryption-key {
+            height: 150px;
+            width: 100%;
+        }
     % end
     % content_for javascript => begin 
         $(document).ready(function () {
+            require(['openpgp.min'], function (openpgp) {
+                console.log('Required openpgp');
+                console.log(openpgp);
+
+                // We need a way to signal if you currently uploaded a private key
+                window.rootcrit = {};
+                window.rootcrit.privateKey = '';
+                $('div.rootcrit-motion-encryption textarea').on('change keyup paste', function (e) {
+                    var that = this;
+                    window.rootcrit.privateKey = $(that).val();
+                    console.log(that);
+                    console.log(window.rootcrit.privateKey);
+                });
+                // You need to be able to name the private key and import it as ascii or a file
+                // Prompt for a password as well.
+                // The private key should be globally accessible
+                // We then load the incident data as a plain blob.
+                // Decrypt all the blobs.
+                // Display the image as a png in the browser.
+
+                //var options = {
+                //    userIds: [{ name:'Jonny Smith', email:'jon@example.com' }], // multiple user IDs
+                //    numBits: 4096,                                            // RSA key size
+                //    passphrase: 'super long and hard to guess secret'         // protects the private key
+                //};
+                //
+                //openpgp.generateKey(options).then(function(key) {
+                //    var privkey = key.privateKeyArmored; // '-----BEGIN PGP PRIVATE KEY BLOCK ... '
+                //    var pubkey = key.publicKeyArmored;   // '-----BEGIN PGP PUBLIC KEY BLOCK ... '
+                //    console.log(pubkey);
+                //});
+            });
             window.motion = {};
             var debug = 0;
             var host_system_information = ['uptime', 'who', 'top'];
@@ -526,7 +567,12 @@ __DATA__
     <div class="rootcrit-motion-stream-container">
     </div>
   </div>
-  <div class='rootcrit-motion-incidents col-xs-12 col-sm-6 col-sm-offset-3 top-level spacing'>
+  <div class='rootcrit-motion-encryption col-xs-12 col-sm-6 col-sm-offset-3 top-level-spacing'>
+    <h2>ASCII Armored Private Key</h2>
+    <textarea class='rootcrit-motion-encryption-key'>
+    </textarea>
+  </div>
+  <div class='rootcrit-motion-incidents col-xs-12 col-sm-6 col-sm-offset-3 top-level-spacing'>
     <h2>Recent incidents</h2>
     <div class="rootcrit-motion-incident-list">
     </div>
@@ -592,6 +638,7 @@ __DATA__
 
     <!-- Latest compiled and minified JavaScript -->
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js" integrity="sha512-K1qjQ+NcF2TYO/eI3M6v8EiNYZfA95pQumfvcVrTHtwQVDG+aHRqLi/ETn2uB+1JqwYqVG3LIvdm9lj6imS/pQ==" crossorigin="anonymous"></script>
+    <script src="/require.js"></script>
     <!-- Custom Javascript -->
     <script>
         <%== content 'javascript' %>
