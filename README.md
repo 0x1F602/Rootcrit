@@ -20,6 +20,10 @@ You should be able to use the setup.sh file to get started. You'll need to insta
 
 ## Release notes
 
+### 2016-03-19
+
+Made a little bit of OpenPGP.js and Gallery support. I have everything loaded and ready for the actual meat of the work now. We are also able to download incidents from Cassandra and display them in a list. Now working on a place to put the PGP private key for in-browser decryption.
+
 ### 2016-03-07
 
 Slowly working my way toward gallery support. You can now disable the system info updates as well.
