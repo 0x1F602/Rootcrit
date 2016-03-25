@@ -289,6 +289,7 @@ get '/incident/image/:incident_id' => (authenticated => 1) => sub {
     my (undef, $x) = $select->get->execute([])->get;
     my @rows = $x->rows_hash;
     my $image_blob = $rows[0]->{image};
+    $c->res->headers->content_type('application/pgp-encryption');
     $c->render(
         data => $image_blob,
     );
@@ -319,6 +320,7 @@ __DATA__
         div.rootcrit-motion span.rootcrit-motion-enable {
             display: hidden;
         }
+
         div.rootcrit-motion span.rootcrit-motion-disable {
             display: hidden;
         }
@@ -330,37 +332,68 @@ __DATA__
     % end
     % content_for javascript => begin 
         $(document).ready(function () {
-            require(['openpgp.min'], function (openpgp) {
-                console.log('Required openpgp');
-                console.log(openpgp);
+            require(['openpgp.min', 'jbinary'], function (openpgp, jBinary) {
 
-                // We need a way to signal if you currently uploaded a private key
-                window.rootcrit = {};
-                window.rootcrit.privateKey = '';
-                $('div.rootcrit-motion-encryption textarea').on('change keyup paste', function (e) {
-                    var that = this;
-                    window.rootcrit.privateKey = $(that).val();
-                    console.log(that);
-                    console.log(window.rootcrit.privateKey);
-                });
                 // You need to be able to name the private key and import it as ascii or a file
                 // Prompt for a password as well.
                 // The private key should be globally accessible
                 // We then load the incident data as a plain blob.
                 // Decrypt all the blobs.
                 // Display the image as a png in the browser.
+                var load_incidents_updater = function () {
+                    console.log("Loading incidents!");
+                    $.ajax({
+                        url: '/incidents'
+                    }).then(function (incidents) {
+                        console.log("Here they are");
+                        console.log(incidents);
+                        var result = incidents.result;
+                        for (var ii = 0; ii < result.length; ii++) {
+                            var oReq = new XMLHttpRequest();
+                            oReq.open("GET", '/incident/image/' + result[ii].incident_id, true);
+                            oReq.responseType = "arraybuffer";
 
-                //var options = {
-                //    userIds: [{ name:'Jonny Smith', email:'jon@example.com' }], // multiple user IDs
-                //    numBits: 4096,                                            // RSA key size
-                //    passphrase: 'super long and hard to guess secret'         // protects the private key
-                //};
-                //
-                //openpgp.generateKey(options).then(function(key) {
-                //    var privkey = key.privateKeyArmored; // '-----BEGIN PGP PRIVATE KEY BLOCK ... '
-                //    var pubkey = key.publicKeyArmored;   // '-----BEGIN PGP PUBLIC KEY BLOCK ... '
-                //    console.log(pubkey);
-                //});
+                            oReq.onload = function (oEvent) {
+                              var arrayBuffer = oReq.response; // Note: not oReq.responseText
+                              if (arrayBuffer) {
+                                var byteArray = new Uint8Array(arrayBuffer);
+                                var privateKey = openpgp.key.readArmored(window.rootcrit.privateKey).keys[0];
+                                privateKey.decrypt(prompt("Enter decryption passphrase"));
+                                var options = {
+                                    message: openpgp.message.read(byteArray),
+                                    privateKey: privateKey,
+                                    format: 'binary'
+                                };
+                                console.log(options);
+                                openpgp.decrypt(options).then(function (plaintext) {
+                                    $('div.rootcrit-motion-incidents').append(
+                                        "<img src='data:image/png;base64," + btoa(String.fromCharCode.apply(null, plaintext.data)) + "'>"
+                                    );
+                                });
+                              }
+                            };
+
+                            oReq.send(null);
+                            // Cassandra TimeUUIDs are 'epoch' and not 'unixepoch'. Date() needs a multiplication.
+                            var dt = new Date(result[ii].timestamp * 1000);
+                            $('div.rootcrit-motion-incidents').append("<a class='col-xs-12' href='/incident/" + result[ii].incident_id + "'>" +
+                                "Incident at " + dt + " " +
+                                "</a>");
+                            $('div.rootcrit-motion-incidents').append("<a class='col-xs-12' href='/incident/image/" + result[ii].incident_id + "'>" +
+                                "Download incident data" +
+                                "</a>");
+                        }
+                    });
+                };
+
+                // We need a way to signal if you currently uploaded a private key
+                window.rootcrit = {};
+                window.rootcrit.privateKey = '';
+                $('div.rootcrit-motion-encryption button').on('click', function (e) {
+                    window.rootcrit.privateKey = $('div.rootcrit-motion-encryption textarea').val();
+                    console.log(window.rootcrit.privateKey);
+                    load_incidents_updater();
+                });
             });
             window.motion = {};
             var debug = 0;
@@ -484,28 +517,6 @@ __DATA__
             // I should look into some real time events. It might behoove me to a reddit front-page like
             // setup where it's a list on its own page that needs to be refreshed manually
             // individual events should have their own page and should be linkable based on UUID
-            var load_incidents_updater = function () {
-                console.log("Loading incidents!");
-                $.ajax({
-                    url: '/incidents'
-                }).then(function (incidents) {
-                    console.log("Here they are");
-                    console.log(incidents);
-                    var result = incidents.result;
-                    for (var ii = 0; ii < result.length; ii++) {
-                        // Cassandra TimeUUIDs are 'epoch' and not 'unixepoch'. Date() needs a multiplication.
-                        var dt = new Date(result[ii].timestamp * 1000);
-                        $('div.rootcrit-motion-incidents').append("<a class='col-xs-12' href='/incident/" + result[ii].incident_id + "'>" +
-                            "Incident at " + dt + " " +
-                            "</a>");
-                        $('div.rootcrit-motion-incidents').append("<a class='col-xs-12' href='/incident/image/" + result[ii].incident_id + "'>" +
-                            "Download incident data" +
-                            "</a>");
-                    }
-                });
-            };
-            load_incidents_updater();
-
             $('div#shutdown-button > form').click(function (e) {
                 if (confirm('Are you sure?')) {
                     return;
@@ -571,6 +582,9 @@ __DATA__
     <h2>ASCII Armored Private Key</h2>
     <textarea class='rootcrit-motion-encryption-key'>
     </textarea>
+    <button class='rootcrit-motion-load-privatekey btn btn-primary col-xs-12'>
+        Load Private Key
+    </button>
   </div>
   <div class='rootcrit-motion-incidents col-xs-12 col-sm-6 col-sm-offset-3 top-level-spacing'>
     <h2>Recent incidents</h2>
