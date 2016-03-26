@@ -348,6 +348,9 @@ __DATA__
                         console.log("Here they are");
                         console.log(incidents);
                         var result = incidents.result;
+
+                        var privateKey = openpgp.key.readArmored(window.rootcrit.privateKey).keys[0];
+                        privateKey.decrypt(prompt("Enter decryption passphrase"));
                         for (var ii = 0; ii < result.length; ii++) {
                             var oReq = new XMLHttpRequest();
                             oReq.open("GET", '/incident/image/' + result[ii].incident_id, true);
