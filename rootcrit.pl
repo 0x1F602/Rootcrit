@@ -483,10 +483,10 @@ __DATA__
                             $('div.rootcrit-motion span.rootcrit-motion-disable').hide();
                             $('div.rootcrit-motion span.rootcrit-motion-enable').show();
                             $('div.rootcrit-motion span.rootcrit-motion-status').text('OFF');
-                $('div.rootcrit-motion div.rootcrit-motion-stream-container img').remove();
-                $('div.rootcrit-motion div.rootcrit-motion-stream-container')
-                .css('height', 0)
-                .css('margin-top', 25);
+                            $('div.rootcrit-motion div.rootcrit-motion-stream-container img').remove();
+                            $('div.rootcrit-motion div.rootcrit-motion-stream-container')
+                                .css('height', 0)
+                                .css('margin-top', 25);
                             window.motion.action = '/motion/start';
                         }
                     }, function (xhr, httpStatus, error) {
