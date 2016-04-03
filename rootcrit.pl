@@ -351,7 +351,13 @@ __DATA__
 
                         var privateKey = openpgp.key.readArmored(window.rootcrit.privateKey).keys[0];
                         privateKey.decrypt(prompt("Enter decryption passphrase"));
+                        window.processing_incidents = 0;
                         for (var ii = 0; ii < result.length; ii++) {
+                            while (window.processing_incidents >= 5) {
+                                // wait
+                            }
+                            window.processing_incidents++;
+                            console.log('decrypting number ' + ii);
                             var oReq = new XMLHttpRequest();
                             oReq.open("GET", '/incident/image/' + result[ii].incident_id, true);
                             oReq.responseType = "arraybuffer";
@@ -360,8 +366,6 @@ __DATA__
                               var arrayBuffer = oReq.response; // Note: not oReq.responseText
                               if (arrayBuffer) {
                                 var byteArray = new Uint8Array(arrayBuffer);
-                                var privateKey = openpgp.key.readArmored(window.rootcrit.privateKey).keys[0];
-                                privateKey.decrypt(prompt("Enter decryption passphrase"));
                                 var options = {
                                     message: openpgp.message.read(byteArray),
                                     privateKey: privateKey,
@@ -372,6 +376,7 @@ __DATA__
                                     $('div.rootcrit-motion-incidents').append(
                                         "<img src='data:image/png;base64," + btoa(String.fromCharCode.apply(null, plaintext.data)) + "'>"
                                     );
+                                    window.processing_incidents--;
                                 });
                               }
                             };
