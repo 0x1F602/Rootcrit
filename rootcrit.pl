@@ -20,6 +20,7 @@ my $facility = $config->{facility};
 my $sensor = $config->{sensor};
 my $recipient = $config->{motion_gpg_public};
 
+say "Connecting to Cassandra host at $cassandra_host";
 my $cass_loop = IO::Async::Loop->new;
 my $cass = Net::Async::CassandraCQL->new(
     host => "$cassandra_host",
