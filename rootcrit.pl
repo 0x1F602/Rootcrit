@@ -333,7 +333,7 @@ __DATA__
     % end
     % content_for javascript => begin 
         $(document).ready(function () {
-            require(['openpgp.min', 'jbinary'], function (openpgp, jBinary) {
+            require(['openpgp.min'], function (openpgp) {
 
                 // You need to be able to name the private key and import it as ascii or a file
                 // Prompt for a password as well.
