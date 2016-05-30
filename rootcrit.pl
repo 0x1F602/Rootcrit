@@ -271,7 +271,7 @@ get '/incidents' => (authenticated => 1) => sub {
     my $recent_incidents = $last_48_hours->strftime('%Y-%m-%d %R');
     my $facility_name = $c->app->plugin('Config')->{facility};
     #my $select = $cass->prepare("SELECT dateof(incident_id) AS timestamp, incident_id, facility, sensor, sensor_filename FROM incident_by_facility WHERE facility = '$facility_name' AND incident_id > minTimeuuid('$recent_incidents') ORDER BY incident_id DESC;");
-    my $select = $cass->prepare("SELECT dateof(incident_id) AS timestamp, incident_id, facility, sensor, sensor_filename FROM incident_by_facility WHERE facility = '$facility_name' ORDER BY incident_id DESC;");
+    my $select = $cass->prepare("SELECT dateof(incident_id) AS timestamp, incident_id, facility, sensor, sensor_filename FROM incident_by_facility WHERE facility = '$facility_name' ORDER BY incident_id DESC LIMIT 30;");
     my (undef, $x) = $select->get->execute([])->get;
     $c->render(
         json => {
@@ -352,7 +352,8 @@ __DATA__
 
                         var privateKey = openpgp.key.readArmored(window.rootcrit.privateKey).keys[0];
                         privateKey.decrypt(prompt("Enter decryption passphrase"));
-                        for (var ii = 0; ii < result.length; ii++) {
+                        var ii = 0;
+                        var decrypt_incident = function (ii) {
                             var oReq = new XMLHttpRequest();
                             oReq.open("GET", '/incident/image/' + result[ii].incident_id, true);
                             oReq.responseType = "arraybuffer";
@@ -361,32 +362,32 @@ __DATA__
                               var arrayBuffer = oReq.response; // Note: not oReq.responseText
                               if (arrayBuffer) {
                                 var byteArray = new Uint8Array(arrayBuffer);
-                                var privateKey = openpgp.key.readArmored(window.rootcrit.privateKey).keys[0];
-                                privateKey.decrypt(prompt("Enter decryption passphrase"));
                                 var options = {
                                     message: openpgp.message.read(byteArray),
                                     privateKey: privateKey,
                                     format: 'binary'
                                 };
-                                console.log(options);
                                 openpgp.decrypt(options).then(function (plaintext) {
-                                    $('div.rootcrit-motion-incidents').append(
-                                        "<img src='data:image/png;base64," + btoa(String.fromCharCode.apply(null, plaintext.data)) + "'>"
+                                    $('div.rootcrit-motion-incidents').prepend(
+                                        "<img src='data:image/png;base64," + btoa(String.fromCharCode.apply(null, plaintext.data)) + "'><br />"
                                     );
+                                    // Cassandra TimeUUIDs are 'epoch' and not 'unixepoch'. Date() needs a multiplication.
+                                    var dt = new Date(result[ii].timestamp * 1000);
+                                    $('div.rootcrit-motion-incidents').append("<a class='col-xs-12' href='/incident/" + result[ii].incident_id + "'>" +
+                                        "Incident at " + dt + " " +
+                                        "</a>");
+                                    $('div.rootcrit-motion-incidents').append("<a class='col-xs-12' href='/incident/image/" + result[ii].incident_id + "'>" +
+                                        "Download incident data" +
+                                        "</a>");
+                                    ii++;
+                                    decrypt_incident(ii);
                                 });
                               }
                             };
 
                             oReq.send(null);
-                            // Cassandra TimeUUIDs are 'epoch' and not 'unixepoch'. Date() needs a multiplication.
-                            var dt = new Date(result[ii].timestamp * 1000);
-                            $('div.rootcrit-motion-incidents').append("<a class='col-xs-12' href='/incident/" + result[ii].incident_id + "'>" +
-                                "Incident at " + dt + " " +
-                                "</a>");
-                            $('div.rootcrit-motion-incidents').append("<a class='col-xs-12' href='/incident/image/" + result[ii].incident_id + "'>" +
-                                "Download incident data" +
-                                "</a>");
-                        }
+                        };
+                        decrypt_incident(ii);
                     });
                 };
 

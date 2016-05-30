@@ -50,7 +50,7 @@ if ($result->{status} eq 'succeeded') {
     my $t = Tenjin->new();
     # provide parameters that we've gathered here to Tenjin here
     my $template_variables = {
-        on_picture_save     => "$transmit_file_path %f",
+        on_picture_save     => "carton exec perl $transmit_file_path %f",
         target_dir          => $target_dir,
         webcam_motion       => 'on',
         webcam_localhost    => 'off',

@@ -12,3 +12,4 @@ requires 'Protocol::CassandraCQL';
 requires 'GnuPG';
 requires 'Devel::Refcount';
 requires 'DateTime';
+requires 'Carton::CLI';
