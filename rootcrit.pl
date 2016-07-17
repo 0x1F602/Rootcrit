@@ -271,6 +271,7 @@ get '/incidents' => (authenticated => 1) => sub {
     my $recent_incidents = $last_48_hours->strftime('%Y-%m-%d %R');
     my $facility_name = $c->app->plugin('Config')->{facility};
     #my $select = $cass->prepare("SELECT dateof(incident_id) AS timestamp, incident_id, facility, sensor, sensor_filename FROM incident_by_facility WHERE facility = '$facility_name' AND incident_id > minTimeuuid('$recent_incidents') ORDER BY incident_id DESC;");
+    # I need to be able to select a start and end time
     my $select = $cass->prepare("SELECT dateof(incident_id) AS timestamp, incident_id, facility, sensor, sensor_filename FROM incident_by_facility WHERE facility = '$facility_name' ORDER BY incident_id DESC LIMIT 30;");
     my (undef, $x) = $select->get->execute([])->get;
     $c->render(
@@ -368,15 +369,15 @@ __DATA__
                                     format: 'binary'
                                 };
                                 openpgp.decrypt(options).then(function (plaintext) {
-                                    $('div.rootcrit-motion-incidents').prepend(
+                                    $('div.rootcrit-motion-incident-list').append(
                                         "<img src='data:image/png;base64," + btoa(String.fromCharCode.apply(null, plaintext.data)) + "'><br />"
                                     );
                                     // Cassandra TimeUUIDs are 'epoch' and not 'unixepoch'. Date() needs a multiplication.
                                     var dt = new Date(result[ii].timestamp * 1000);
-                                    $('div.rootcrit-motion-incidents').append("<a class='col-xs-12' href='/incident/" + result[ii].incident_id + "'>" +
+                                    $('div.rootcrit-motion-incident-list').append("<a class='col-xs-12' href='/incident/" + result[ii].incident_id + "'>" +
                                         "Incident at " + dt + " " +
                                         "</a>");
-                                    $('div.rootcrit-motion-incidents').append("<a class='col-xs-12' href='/incident/image/" + result[ii].incident_id + "'>" +
+                                    $('div.rootcrit-motion-incident-list').append("<a class='col-xs-12' href='/incident/image/" + result[ii].incident_id + "'>" +
                                         "Download incident data" +
                                         "</a>");
                                     ii++;
@@ -395,6 +396,8 @@ __DATA__
                 window.rootcrit = {};
                 window.rootcrit.privateKey = '';
                 $('div.rootcrit-motion-encryption button').on('click', function (e) {
+                    // Strip leading spaces here, please!
+                    // Textarea should be completely empty
                     window.rootcrit.privateKey = $('div.rootcrit-motion-encryption textarea').val();
                     console.log(window.rootcrit.privateKey);
                     load_incidents_updater();
@@ -592,7 +595,15 @@ __DATA__
     </button>
   </div>
   <div class='rootcrit-motion-incidents col-xs-12 col-sm-6 col-sm-offset-3 top-level-spacing'>
-    <h2>Recent incidents</h2>
+    <h2>Select Time Range</h2>
+    <div class="rootcrit-motion-incident-time-range">
+        <p>Unimplemented</p>
+        <p>Start Date:</p>
+        <p>Start Time:</p>
+        <p>End Date:</p>
+        <p>End Time:</p>
+    </div>
+    <h2>Incidents</h2>
     <div class="rootcrit-motion-incident-list">
     </div>
   </div>
