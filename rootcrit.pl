@@ -26,6 +26,7 @@ my $cass = Net::Async::CassandraCQL->new(
     host => "$cassandra_host",
     keyspace => "rootcrit",
     default_consistency => CONSISTENCY_QUORUM,
+    cql_version => 2,
 );
 $cass_loop->add( $cass );
 my $result = $cass->connect->get;
@@ -335,6 +336,9 @@ __DATA__
     % content_for javascript => begin 
         $(document).ready(function () {
             require(['openpgp.min'], function (openpgp) {
+                // We need a way to signal if you currently uploaded a private key
+                window.rootcrit = {};
+                window.rootcrit.privateKey = '';
 
                 // You need to be able to name the private key and import it as ascii or a file
                 // Prompt for a password as well.
@@ -345,14 +349,18 @@ __DATA__
                 var load_incidents_updater = function () {
                     console.log("Loading incidents!");
                     $.ajax({
-                        url: '/incidents'
+                        url: '/incidents',
                     }).then(function (incidents) {
                         console.log("Here they are");
                         console.log(incidents);
                         var result = incidents.result;
 
                         var privateKey = openpgp.key.readArmored(window.rootcrit.privateKey).keys[0];
-                        privateKey.decrypt(prompt("Enter decryption passphrase"));
+                        console.log(window.rootcrit.decryptionKey);
+                        if (typeof window.rootcrit.decryptionKey === 'undefined') {
+                            window.rootcrit.decryptionKey = prompt("Enter decryption passphrase");
+                        }
+                        privateKey.decrypt(window.rootcrit.decryptionKey);
                         var ii = 0;
                         var decrypt_incident = function (ii) {
                             var oReq = new XMLHttpRequest();
@@ -369,15 +377,15 @@ __DATA__
                                     format: 'binary'
                                 };
                                 openpgp.decrypt(options).then(function (plaintext) {
-                                    $('div.rootcrit-motion-incident-list').append(
+                                    $('div.rootcrit-motion-incident-list').prepend(
                                         "<img src='data:image/png;base64," + btoa(String.fromCharCode.apply(null, plaintext.data)) + "'><br />"
                                     );
                                     // Cassandra TimeUUIDs are 'epoch' and not 'unixepoch'. Date() needs a multiplication.
                                     var dt = new Date(result[ii].timestamp * 1000);
-                                    $('div.rootcrit-motion-incident-list').append("<a class='col-xs-12' href='/incident/" + result[ii].incident_id + "'>" +
+                                    $('div.rootcrit-motion-incident-list').prepend("<a class='col-xs-12' href='/incident/" + result[ii].incident_id + "'>" +
                                         "Incident at " + dt + " " +
                                         "</a>");
-                                    $('div.rootcrit-motion-incident-list').append("<a class='col-xs-12' href='/incident/image/" + result[ii].incident_id + "'>" +
+                                    $('div.rootcrit-motion-incident-list').prepend("<a class='col-xs-12' href='/incident/image/" + result[ii].incident_id + "'>" +
                                         "Download incident data" +
                                         "</a>");
                                     ii++;
@@ -392,9 +400,6 @@ __DATA__
                     });
                 };
 
-                // We need a way to signal if you currently uploaded a private key
-                window.rootcrit = {};
-                window.rootcrit.privateKey = '';
                 $('div.rootcrit-motion-encryption button').on('click', function (e) {
                     // Strip leading spaces here, please!
                     // Textarea should be completely empty
@@ -591,7 +596,7 @@ __DATA__
     <textarea class='rootcrit-motion-encryption-key'>
     </textarea>
     <button class='rootcrit-motion-load-privatekey btn btn-primary col-xs-12'>
-        Load Private Key
+        Load Some Incidents
     </button>
   </div>
   <div class='rootcrit-motion-incidents col-xs-12 col-sm-6 col-sm-offset-3 top-level-spacing'>
