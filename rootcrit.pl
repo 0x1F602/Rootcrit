@@ -271,10 +271,22 @@ get '/incidents' => (authenticated => 1) => sub {
     $last_48_hours->subtract(hours => 72);
     my $recent_incidents = $last_48_hours->strftime('%Y-%m-%d %R');
     my $facility_name = $c->app->plugin('Config')->{facility};
-    #my $select = $cass->prepare("SELECT dateof(incident_id) AS timestamp, incident_id, facility, sensor, sensor_filename FROM incident_by_facility WHERE facility = '$facility_name' AND incident_id > minTimeuuid('$recent_incidents') ORDER BY incident_id DESC;");
     # I need to be able to select a start and end time
-    my $select = $cass->prepare("SELECT dateof(incident_id) AS timestamp, incident_id, facility, sensor, sensor_filename FROM incident_by_facility WHERE facility = '$facility_name' ORDER BY incident_id DESC LIMIT 30;");
-    my (undef, $x) = $select->get->execute([])->get;
+    my $query = qq{
+        SELECT
+            dateof(incident_id) AS timestamp,
+            incident_id, facility, sensor, sensor_filename 
+        FROM incident_by_facility WHERE facility = '$facility_name' ORDER BY incident_id DESC;
+    };
+    my $consistency = CONSISTENCY_QUORUM;
+    my %other_args = (
+        page_size       => 3,
+    );
+    if ($c->session->{'paging_state'}) {
+        $other_args{paging_state} = $c->session->{'paging_state'};
+    }
+    my (undef, $x) = $cass->query($query, $consistency, %other_args)->get;
+    $c->session('paging_state' => $x->paging_state);
     $c->render(
         json => {
             result => [$x->rows_hash],
