@@ -20,6 +20,10 @@ You should be able to use the setup.sh file to get started. You'll need to insta
 
 ## Release notes
 
+### 2016-07-19
+
+Implemented paging for incidents, updated incident decryption and viewing workflow in general
+
 ### 2016-06-06
 
 Fixed the bug with OpenPGP.js getting overwhelmed when attempting to open multiple files at once
